@@ -1,0 +1,76 @@
+import { Link, useLocation, useNavigate } from '@tanstack/react-router'
+import { ArrowLeftRight, Sparkles } from 'lucide-react'
+import { navConfig, portalLabels } from './nav-config'
+import { AvatarInitials } from './avatar-initials'
+import type { Portal } from '#/lib/hooks/use-portal-preference'
+import { cn } from '#/lib/utils'
+
+interface SidebarProps {
+  portal: Portal
+  identityName: string
+  identitySubtitle: string
+  onNavigate?: () => void
+  className?: string
+}
+
+export function Sidebar({ portal, identityName, identitySubtitle, onNavigate, className }: SidebarProps) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const items = navConfig[portal]
+  const rootPath = items[0]!.to
+
+  return (
+    <aside className={cn('flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground', className)}>
+      <div className="flex items-center gap-2.5 px-6 py-6">
+        <div className="flex size-9 items-center justify-center rounded-xl bg-accent-indigo/20 text-accent-gold">
+          <Sparkles className="size-5" />
+        </div>
+        <div>
+          <p className="text-[15px] font-semibold leading-tight tracking-tight">StayFlow</p>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-muted-text">{portalLabels[portal]}</p>
+        </div>
+      </div>
+
+      <nav className="flex-1 space-y-1 px-3">
+        {items.map((item) => {
+          const isActive = item.to === rootPath ? location.pathname === item.to : location.pathname.startsWith(item.to)
+          const Icon = item.icon
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={onNavigate}
+              className={cn(
+                'group flex items-center gap-3 rounded-xl border-l-2 border-transparent px-3 py-2.5 text-sm font-medium text-muted-text transition-colors',
+                isActive
+                  ? 'border-accent-gold bg-accent-indigo/15 text-foreground'
+                  : 'hover:bg-surface-hover hover:text-foreground',
+              )}
+            >
+              <Icon className={cn('size-[18px]', isActive ? 'text-accent-gold' : 'text-muted-text group-hover:text-foreground')} />
+              {item.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      <div className="mt-auto space-y-3 border-t border-sidebar-border p-4">
+        <div className="flex items-center gap-3 rounded-xl bg-surface px-3 py-2.5">
+          <AvatarInitials seed={identityName} />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{identityName}</p>
+            <p className="truncate text-xs text-muted-text">{identitySubtitle}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate({ to: '/' })}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-sidebar-border px-3 py-2 text-xs font-medium text-muted-text transition-colors hover:border-accent-indigo/50 hover:text-foreground"
+        >
+          <ArrowLeftRight className="size-3.5" />
+          Switch portal
+        </button>
+      </div>
+    </aside>
+  )
+}
