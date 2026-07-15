@@ -99,7 +99,7 @@ export const facilities: Facility[] = [
     category: 'Recreation',
     description: 'Supervised indoor play area with climbing structures, arts corner, and reading nook for kids.',
     rules: ['Ages 3–12 only', 'Parent sign-in required', 'Socks required on play structures'],
-    image: '/images/facilities/kids-lounge.svg',
+    image: '/images/facilities/kids-lounge.png',
     capacity: 18,
     openHours: '9:00 AM – 7:00 PM',
     status: 'closed',
