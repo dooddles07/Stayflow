@@ -206,7 +206,10 @@ function StaffDiningPage() {
                     </div>
                     <StatusPill status={r.status} />
                   </div>
-                  <p className="mt-2 text-xs text-muted-text">{r.date.slice(0, 10)} · {r.time} · Party of {r.partySize} · {r.seating}</p>
+                  <p className="mt-2 text-xs text-muted-text">
+                    {r.date.slice(0, 10)} · {r.time} · Party of {r.partySize} · {r.seating}
+                    {r.tableLabel && <> · Table {r.tableLabel}</>}
+                  </p>
                   {(r.status === 'pending' || r.status === 'confirmed') && (
                     <div className="mt-3 flex gap-2">
                       {r.status === 'pending' && (
@@ -236,6 +239,7 @@ function StaffDiningPage() {
                   <th className="px-4 py-3 font-medium">Time</th>
                   <th className="px-4 py-3 font-medium">Party</th>
                   <th className="px-4 py-3 font-medium">Seating</th>
+                  <th className="px-4 py-3 font-medium">Table</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
@@ -251,6 +255,7 @@ function StaffDiningPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-muted-text">{r.time}</td>
                       <td className="px-4 py-3 text-muted-text">{r.partySize}</td>
                       <td className="px-4 py-3 text-muted-text">{r.seating}</td>
+                      <td className="px-4 py-3 text-muted-text">{r.tableLabel ?? '—'}</td>
                       <td className="px-4 py-3">
                         <StatusPill status={r.status} />
                       </td>

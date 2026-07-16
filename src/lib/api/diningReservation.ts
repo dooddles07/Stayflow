@@ -23,6 +23,8 @@ interface ReservationApiResponse {
   restaurant?: { id: string; name: string }
   residentId: string
   resident?: { id: string; name: string }
+  tableId: string | null
+  table?: { id: string; label: string; seats: number } | null
   date: string
   time: string
   partySize: number
@@ -36,6 +38,7 @@ interface ReservationApiResponse {
 export interface ReservationView extends DiningReservation {
   restaurantName?: string
   residentName?: string
+  tableLabel?: string
 }
 
 const toReservation = (r: ReservationApiResponse): ReservationView => ({
@@ -44,6 +47,7 @@ const toReservation = (r: ReservationApiResponse): ReservationView => ({
   restaurantName: r.restaurant?.name,
   residentId: r.residentId,
   residentName: r.resident?.name,
+  tableLabel: r.table?.label,
   date: r.date,
   time: r.time,
   partySize: r.partySize,

@@ -183,6 +183,8 @@ model DiningTable {
   seats        Int
   status       TableStatus @default(AVAILABLE)
 
+  reservations DiningReservation[]
+
   @@map("dining_tables")
 }
 
@@ -192,6 +194,8 @@ model DiningReservation {
   restaurant   Restaurant              @relation(fields: [restaurantId], references: [id])
   residentId   String
   resident     Resident                @relation(fields: [residentId], references: [id])
+  tableId      String?
+  table        DiningTable?            @relation(fields: [tableId], references: [id])
   date         DateTime                @db.Date
   time         String
   partySize    Int

@@ -1,6 +1,7 @@
 import { DiningReservationModel } from '../models/diningReservation.model.js'
 import { buildCrudController } from '../utils/crudController.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
+import { ApiError } from '../utils/ApiError.js'
 
 const base = buildCrudController(DiningReservationModel, 'Dining reservation')
 
@@ -15,9 +16,32 @@ export const diningReservationController = {
     const reservation = await DiningReservationModel.create({ ...req.body, date: toFullDate(req.body.date) })
     res.status(201).json(reservation)
   }),
+  // Status transitions carry real-world side effects on the table map — a plain field
+  // edit never touches a table, but confirming/arriving/cancelling does.
   update: asyncHandler(async (req, res) => {
     const data = { ...req.body }
     if ('date' in data) data.date = toFullDate(data.date)
+
+    if (data.status) {
+      const current = await DiningReservationModel.findById(req.params.id)
+      if (!current) throw ApiError.notFound('Dining reservation not found')
+
+      if (data.status === 'CONFIRMED' && !current.tableId) {
+        const table = await DiningReservationModel.findAvailableTable(current.restaurantId, current.partySize)
+        if (!table) throw ApiError.conflict(`No available table seats a party of ${current.partySize} right now.`)
+        await DiningReservationModel.setTableStatus(table.id, 'RESERVED')
+        data.tableId = table.id
+      }
+
+      if (data.status === 'ARRIVED' && current.tableId) {
+        await DiningReservationModel.setTableStatus(current.tableId, 'OCCUPIED')
+      }
+
+      if (data.status === 'CANCELLED' && current.tableId && current.status === 'CONFIRMED') {
+        await DiningReservationModel.setTableStatus(current.tableId, 'AVAILABLE')
+      }
+    }
+
     res.json(await DiningReservationModel.update(req.params.id, data))
   }),
   byResident: asyncHandler(async (req, res) => {
