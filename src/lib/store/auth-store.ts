@@ -18,6 +18,8 @@ interface AuthUser {
   displayName: string
   // Present when role === 'STAFF' — the login/me endpoints include this relation.
   staff?: { role: string; avatarSeed: string } | null
+  // Present when role === 'MEMBER' — same endpoints include this relation too.
+  resident?: { id: string } | null
 }
 
 interface LoginResponse {

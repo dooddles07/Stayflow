@@ -1,14 +1,18 @@
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
-import { CalendarDays, UserCircle2, UtensilsCrossed, Waves } from 'lucide-react'
+import { CalendarDays, ClipboardList, Megaphone, UserCircle2, Users, UtensilsCrossed, Waves } from 'lucide-react'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '#/components/ui/command'
 import { useUiStore } from '#/lib/store/ui-store'
+import { useAuthStore } from '#/lib/store/auth-store'
 import { getFacilities } from '#/lib/api/facility'
 import { getRestaurants } from '#/lib/api/restaurant'
 import { getEvents, type CommunityEventView } from '#/lib/api/event'
 import { getAllResidents, type ResidentProfile } from '#/lib/api/resident'
+import { getMyGuests, getAllGuests, type GuestView } from '#/lib/api/guest'
+import { getAllBookings, type BookingView } from '#/lib/api/booking'
+import { getNotices } from '#/lib/api/notice'
 import type { Portal } from '#/lib/hooks/use-portal-preference'
-import type { Facility, Restaurant } from '#/lib/mock/types'
+import type { Facility, Notice, Restaurant } from '#/lib/mock/types'
 
 // Every destination below stays inside the current portal — search must never
 // hand a member/staff/management user a link into a portal they can't access.
@@ -35,25 +39,50 @@ const eventsListPath: Record<Portal, string> = {
   staff: '/staff/events',
   management: '/management/events',
 }
+const guestsListPath: Record<'member' | 'staff', string> = {
+  member: '/member/guests',
+  staff: '/staff/guests',
+}
+const noticesListPath: Record<'member' | 'management', string> = {
+  member: '/member/notices',
+  management: '/management/notices',
+}
 
 export function GlobalSearch() {
   const searchOpen = useUiStore((s) => s.searchOpen)
   const setSearchOpen = useUiStore((s) => s.setSearchOpen)
   const navigate = useNavigate()
   const portal = useCurrentPortal()
+  // GlobalSearch mounts once at the root, outside MemberProfileProvider — read the
+  // resident id off the auth session (always available) instead of useMyProfile.
+  const memberId = useAuthStore((s) => s.user?.resident?.id)
 
   const [facilities, setFacilities] = React.useState<Facility[]>([])
   const [restaurants, setRestaurants] = React.useState<Restaurant[]>([])
   const [events, setEvents] = React.useState<CommunityEventView[]>([])
   const [residents, setResidents] = React.useState<ResidentProfile[]>([])
+  const [guests, setGuests] = React.useState<GuestView[]>([])
+  const [bookings, setBookings] = React.useState<BookingView[]>([])
+  const [notices, setNotices] = React.useState<Notice[]>([])
 
   React.useEffect(() => {
     if (!searchOpen || !portal) return
     getFacilities().then(setFacilities).catch(() => {})
     getRestaurants().then(setRestaurants).catch(() => {})
     getEvents().then(setEvents).catch(() => {})
-    if (portal === 'management') getAllResidents().then(setResidents).catch(() => {})
-  }, [searchOpen, portal])
+    if (portal === 'management') {
+      getAllResidents().then(setResidents).catch(() => {})
+      getNotices().then(setNotices).catch(() => {})
+    }
+    if (portal === 'member') {
+      getNotices().then(setNotices).catch(() => {})
+      if (memberId) getMyGuests(memberId).then(setGuests).catch(() => {})
+    }
+    if (portal === 'staff') {
+      getAllGuests().then(setGuests).catch(() => {})
+      getAllBookings().then(setBookings).catch(() => {})
+    }
+  }, [searchOpen, portal, memberId])
 
   React.useEffect(() => {
     if (!portal) return
@@ -133,6 +162,43 @@ export function GlobalSearch() {
             </CommandItem>
           ))}
         </CommandGroup>
+        {(portal === 'member' || portal === 'staff') && (
+          <CommandGroup heading="Guests">
+            {guests.map((g) => (
+              <CommandItem key={g.id} value={`${g.name} ${g.hostName ?? ''}`} onSelect={() => go(guestsListPath[portal])}>
+                <Users />
+                <span>{g.name}</span>
+                <span className="ml-auto text-xs capitalize text-muted-text">{g.status}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {portal === 'staff' && (
+          <CommandGroup heading="Bookings">
+            {bookings.map((b) => (
+              <CommandItem
+                key={b.id}
+                value={`${b.facilityName ?? ''} ${b.residentName ?? ''}`}
+                onSelect={() => go('/staff/bookings')}
+              >
+                <ClipboardList />
+                <span>{b.facilityName}</span>
+                <span className="ml-auto text-xs text-muted-text">{b.residentName}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {(portal === 'member' || portal === 'management') && (
+          <CommandGroup heading="Notices">
+            {notices.map((n) => (
+              <CommandItem key={n.id} value={n.title} onSelect={() => go(noticesListPath[portal])}>
+                <Megaphone />
+                <span>{n.title}</span>
+                <span className="ml-auto text-xs text-muted-text">{n.category}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
       </CommandList>
     </CommandDialog>
   )
