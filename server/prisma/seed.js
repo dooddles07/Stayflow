@@ -163,18 +163,83 @@ async function main() {
     create: { eventId: event.id, residentId: resident.id },
   })
 
-  await prisma.notice.upsert({
-    where: { id: 'ntc-001' },
-    update: {},
-    create: {
+  const noticeSeed = [
+    {
       id: 'ntc-001',
       title: 'Elevator Maintenance — Skyline Tower Bank B',
       category: 'Maintenance',
-      body: 'Bank B elevators will undergo scheduled maintenance on July 17 from 10:00 PM to 2:00 AM.',
+      body: 'Bank B elevators will undergo scheduled maintenance on July 17 from 10:00 PM to 2:00 AM. Please use Bank A during this window.',
+      postedAt: new Date('2026-07-14T09:00:00Z'),
       postedBy: staffMember.name,
       pinned: true,
     },
-  })
+    {
+      id: 'ntc-002',
+      title: 'Water Shutoff Notice — Garden Residences',
+      category: 'Important',
+      body: 'A brief water shutoff is scheduled for July 16, 1:00–3:00 PM, for valve replacement work. We recommend storing water in advance.',
+      postedAt: new Date('2026-07-13T15:30:00Z'),
+      postedBy: 'Fatima Haidari',
+      pinned: true,
+    },
+    {
+      id: 'ntc-003',
+      title: 'Sunset Rooftop Wine Tasting — RSVP Open',
+      category: 'Events',
+      body: 'Spots are filling fast for our July 18 rooftop wine tasting. Reserve your place from the Events tab before Friday.',
+      postedAt: new Date('2026-07-12T12:00:00Z'),
+      postedBy: 'Jonah Pierce',
+      pinned: false,
+    },
+    {
+      id: 'ntc-004',
+      title: 'New Package Room Hours',
+      category: 'General',
+      body: 'The package room is now open until 10:00 PM daily to accommodate evening deliveries.',
+      postedAt: new Date('2026-07-11T08:00:00Z'),
+      postedBy: 'Marcus Webb',
+      pinned: false,
+    },
+    {
+      id: 'ntc-005',
+      title: 'Tennis Court Resurfacing In Progress',
+      category: 'Maintenance',
+      body: 'The Championship Tennis Court is closed for resurfacing through July 20. We appreciate your patience.',
+      postedAt: new Date('2026-07-10T10:15:00Z'),
+      postedBy: staffMember.name,
+      pinned: false,
+    },
+    {
+      id: 'ntc-006',
+      title: 'Summer Night Cinema Lineup Announced',
+      category: 'Events',
+      body: "This season's classics lineup is now live. Check the Events tab for showtimes and to reserve your seat.",
+      postedAt: new Date('2026-07-09T17:45:00Z'),
+      postedBy: 'Jonah Pierce',
+      pinned: false,
+    },
+    {
+      id: 'ntc-007',
+      title: 'Annual Fire Safety Inspection — July 23',
+      category: 'Important',
+      body: 'Fire safety inspectors will access common areas and mechanical rooms on July 23 between 9:00 AM and 5:00 PM. No action required from residents.',
+      postedAt: new Date('2026-07-08T09:00:00Z'),
+      postedBy: 'Deshawn Ellis',
+      pinned: false,
+    },
+    {
+      id: 'ntc-008',
+      title: 'Junior Play Lounge Deep Clean',
+      category: 'Maintenance',
+      body: 'The Junior Play Lounge is closed today for a deep clean and reopens tomorrow at 9:00 AM.',
+      postedAt: new Date('2026-07-15T07:00:00Z'),
+      postedBy: 'Fatima Haidari',
+      pinned: false,
+    },
+  ]
+  for (const notice of noticeSeed) {
+    await prisma.notice.upsert({ where: { id: notice.id }, update: {}, create: notice })
+  }
 
   await prisma.appNotification.upsert({
     where: { id: 'notif-001' },
