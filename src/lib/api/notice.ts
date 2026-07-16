@@ -9,10 +9,9 @@ export interface NoticeInput {
   category: NoticeCategory
   body: string
   pinned: boolean
-  postedBy: string
 }
 
-// Writes require STAFF/MANAGEMENT (enforced server-side). postedAt/id are set by the server.
+// Writes require STAFF/MANAGEMENT (enforced server-side). postedAt/id/postedBy are set by the server.
 export const createNotice = (data: NoticeInput) => api.post<Notice>('/notices', data)
 export const updateNotice = (id: string, data: NoticeInput) => api.put<Notice>(`/notices/${id}`, data)
 export const deleteNotice = (id: string) => api.del<void>(`/notices/${id}`)

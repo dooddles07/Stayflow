@@ -21,7 +21,6 @@ import {
 } from '#/components/ui/alert-dialog'
 import { ApiError } from '#/lib/api/client'
 import { createNotice, deleteNotice, getNotices, updateNotice } from '#/lib/api/notice'
-import { CURRENT_MANAGER_NAME } from '#/lib/session'
 import type { Notice, NoticeCategory } from '#/lib/mock/types'
 
 export const Route = createFileRoute('/management/notices')({
@@ -84,7 +83,6 @@ function ManagementNoticesPage() {
         category: editing.category,
         body: editing.body.trim(),
         pinned: editing.pinned,
-        postedBy: CURRENT_MANAGER_NAME,
       }
       const saved = editing.id ? await updateNotice(editing.id, payload) : await createNotice(payload)
       setNotices((prev) => {
