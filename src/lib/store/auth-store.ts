@@ -16,6 +16,8 @@ interface AuthUser {
   email: string
   role: PortalRole
   displayName: string
+  // Present when role === 'STAFF' — the login/me endpoints include this relation.
+  staff?: { role: string; avatarSeed: string } | null
 }
 
 interface LoginResponse {

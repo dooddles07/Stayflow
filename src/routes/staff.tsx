@@ -1,8 +1,7 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { AppShell } from '#/components/stayflow/app-shell'
-import { getStaffById } from '#/lib/mock/staff'
-import { CURRENT_STAFF_ID } from '#/lib/session'
 import { useRequireAuth } from '#/lib/hooks/use-require-auth'
+import { useAuthStore } from '#/lib/store/auth-store'
 
 export const Route = createFileRoute('/staff')({
   component: StaffLayout,
@@ -10,12 +9,17 @@ export const Route = createFileRoute('/staff')({
 
 function StaffLayout() {
   const ready = useRequireAuth('staff')
-  const member = getStaffById(CURRENT_STAFF_ID)
+  const user = useAuthStore((s) => s.user)
 
   if (!ready) return null
 
   return (
-    <AppShell portal="staff" identityName={member?.name ?? 'Staff'} identitySubtitle={member?.role ?? ''}>
+    <AppShell
+      portal="staff"
+      identityName={user?.displayName ?? 'Staff'}
+      identitySubtitle={user?.staff?.role ?? 'Staff'}
+      avatarSeed={user?.staff?.avatarSeed}
+    >
       <Outlet />
     </AppShell>
   )
