@@ -11,8 +11,19 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '#/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '#/components/ui/alert-dialog'
 import { ApiError } from '#/lib/api/client'
-import { getMyGuests, registerGuest, type GuestView } from '#/lib/api/guest'
+import { cancelGuest, getMyGuests, registerGuest, type GuestView } from '#/lib/api/guest'
 import { useMyProfile } from '#/lib/store/member-profile'
 import { nextDays, toDateKey } from '#/lib/booking-slots'
 
@@ -36,6 +47,7 @@ function GuestsPage() {
   const [arrivalTime, setArrivalTime] = React.useState('2:00 PM')
   const [newGuest, setNewGuest] = React.useState<GuestView | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+  const [canceling, setCanceling] = React.useState(false)
 
   const load = React.useCallback((residentId: string) => {
     let active = true
@@ -86,6 +98,24 @@ function GuestsPage() {
       setSubmitting(false)
     }
   }
+
+  async function handleCancel() {
+    if (!newGuest || canceling) return
+    setCanceling(true)
+    try {
+      await cancelGuest(newGuest.id)
+      setGuests((prev) => prev.filter((g) => g.id !== newGuest.id))
+      toast.success('Guest registration cancelled')
+      setNewGuest(null)
+    } catch (err) {
+      toast.error(errText(err))
+    } finally {
+      setCanceling(false)
+    }
+  }
+
+  // Once a guest has arrived (or left), there's nothing to cancel — the visit already happened.
+  const canCancel = newGuest?.status === 'pending' || newGuest?.status === 'approved'
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -219,6 +249,29 @@ function GuestsPage() {
                 </p>
               </div>
               <StatusPill status={newGuest.status} />
+              {canCancel && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" disabled={canceling} className="w-full border-border text-rose-400 hover:bg-rose-500/10 hover:text-rose-400">
+                      {canceling ? 'Cancelling…' : 'Cancel Registration'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="border-border bg-surface">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancel this guest pass?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {newGuest.name} will no longer be expected, and this pass number stops working. This can't be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="border-border">Keep it</AlertDialogCancel>
+                      <AlertDialogAction className="bg-rose-600 text-white hover:bg-rose-700" onClick={handleCancel}>
+                        Cancel Registration
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           )}
         </DialogContent>

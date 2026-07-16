@@ -76,3 +76,6 @@ export const setGuestStatus = (id: string, status: GuestStatus) =>
 
 export const checkInGuest = (id: string) => api.post<GuestApiResponse>(`/guests/${id}/check-in`, {}).then(toGuest)
 export const checkOutGuest = (id: string) => api.post<GuestApiResponse>(`/guests/${id}/check-out`, {}).then(toGuest)
+
+// Owner-guarded server-side — a resident can only cancel a guest they registered themselves.
+export const cancelGuest = (id: string) => api.del<void>(`/guests/${id}`)
