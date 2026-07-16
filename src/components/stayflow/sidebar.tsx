@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { LogOut } from 'lucide-react'
 import { navConfig, portalLabels } from './nav-config'
-import { AvatarInitials } from './avatar-initials'
+import { UserAvatar } from './user-avatar'
 import { clearStoredPortal, type Portal } from '#/lib/hooks/use-portal-preference'
 import { useAuthStore } from '#/lib/store/auth-store'
 import { cn } from '#/lib/utils'
@@ -10,11 +10,13 @@ interface SidebarProps {
   portal: Portal
   identityName: string
   identitySubtitle: string
+  avatarSeed?: string
+  avatarStyle?: string | null
   onNavigate?: () => void
   className?: string
 }
 
-export function Sidebar({ portal, identityName, identitySubtitle, onNavigate, className }: SidebarProps) {
+export function Sidebar({ portal, identityName, identitySubtitle, avatarSeed, avatarStyle, onNavigate, className }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const logout = useAuthStore((s) => s.logout)
@@ -58,7 +60,7 @@ export function Sidebar({ portal, identityName, identitySubtitle, onNavigate, cl
 
       <div className="mt-auto space-y-3 border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3 rounded-xl bg-surface px-3 py-2.5">
-          <AvatarInitials seed={identityName} />
+          <UserAvatar seed={avatarSeed ?? identityName} style={avatarStyle} name={identityName} />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-foreground">{identityName}</p>
             <p className="truncate text-xs text-muted-text">{identitySubtitle}</p>

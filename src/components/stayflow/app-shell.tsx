@@ -9,10 +9,12 @@ interface AppShellProps {
   portal: Portal
   identityName: string
   identitySubtitle: string
+  avatarSeed?: string
+  avatarStyle?: string | null
   children: React.ReactNode
 }
 
-export function AppShell({ portal, identityName, identitySubtitle, children }: AppShellProps) {
+export function AppShell({ portal, identityName, identitySubtitle, avatarSeed, avatarStyle, children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
 
   return (
@@ -21,6 +23,8 @@ export function AppShell({ portal, identityName, identitySubtitle, children }: A
         portal={portal}
         identityName={identityName}
         identitySubtitle={identitySubtitle}
+        avatarSeed={avatarSeed}
+        avatarStyle={avatarStyle}
         className="hidden lg:flex"
       />
 
@@ -31,6 +35,8 @@ export function AppShell({ portal, identityName, identitySubtitle, children }: A
             portal={portal}
             identityName={identityName}
             identitySubtitle={identitySubtitle}
+            avatarSeed={avatarSeed}
+            avatarStyle={avatarStyle}
             onNavigate={() => setMobileNavOpen(false)}
             className="flex w-full"
           />
@@ -38,7 +44,13 @@ export function AppShell({ portal, identityName, identitySubtitle, children }: A
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar identityName={identityName} identitySubtitle={identitySubtitle} onOpenMobileNav={() => setMobileNavOpen(true)} />
+        <TopBar
+          identityName={identityName}
+          identitySubtitle={identitySubtitle}
+          avatarSeed={avatarSeed}
+          avatarStyle={avatarStyle}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+        />
         <main className="min-w-0 flex-1 px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pb-10">{children}</main>
       </div>
 

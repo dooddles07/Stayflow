@@ -11,7 +11,13 @@ function MemberShell() {
   const { profile } = useMyProfile()
 
   return (
-    <AppShell portal="member" identityName={profile?.name ?? 'Member'} identitySubtitle={profile?.unit ?? ''}>
+    <AppShell
+      portal="member"
+      identityName={profile?.name ?? 'Member'}
+      identitySubtitle={profile?.unit ?? ''}
+      avatarSeed={profile?.avatarSeed}
+      avatarStyle={profile?.avatarStyle}
+    >
       <Outlet />
     </AppShell>
   )

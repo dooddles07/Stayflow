@@ -1,15 +1,17 @@
 import { Menu, Search } from 'lucide-react'
 import { NotificationBell } from './notification-bell'
-import { AvatarInitials } from './avatar-initials'
+import { UserAvatar } from './user-avatar'
 import { useUiStore } from '#/lib/store/ui-store'
 
 interface TopBarProps {
   identityName: string
   identitySubtitle: string
+  avatarSeed?: string
+  avatarStyle?: string | null
   onOpenMobileNav: () => void
 }
 
-export function TopBar({ identityName, identitySubtitle, onOpenMobileNav }: TopBarProps) {
+export function TopBar({ identityName, identitySubtitle, avatarSeed, avatarStyle, onOpenMobileNav }: TopBarProps) {
   const setSearchOpen = useUiStore((s) => s.setSearchOpen)
 
   return (
@@ -39,13 +41,13 @@ export function TopBar({ identityName, identitySubtitle, onOpenMobileNav }: TopB
         <NotificationBell />
         <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
         <div className="hidden items-center gap-2.5 sm:flex">
-          <AvatarInitials seed={identityName} />
+          <UserAvatar seed={avatarSeed ?? identityName} style={avatarStyle} name={identityName} />
           <div className="max-w-[10rem]">
             <p className="truncate text-sm font-medium leading-tight text-foreground">{identityName}</p>
             <p className="truncate text-xs leading-tight text-muted-text">{identitySubtitle}</p>
           </div>
         </div>
-        <AvatarInitials seed={identityName} className="sm:hidden" />
+        <UserAvatar seed={avatarSeed ?? identityName} style={avatarStyle} name={identityName} className="sm:hidden" />
       </div>
     </header>
   )
