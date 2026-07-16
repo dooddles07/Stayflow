@@ -19,7 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '#/components/ui/alert-dialog'
-import { useMockStore, genId } from '#/lib/store/mock-store'
+import { ApiError } from '#/lib/api/client'
+import { createNotice, deleteNotice, getNotices, updateNotice } from '#/lib/api/notice'
 import { CURRENT_MANAGER_NAME } from '#/lib/session'
 import type { Notice, NoticeCategory } from '#/lib/mock/types'
 
@@ -29,31 +30,89 @@ export const Route = createFileRoute('/management/notices')({
 })
 
 const categories: NoticeCategory[] = ['Important', 'Maintenance', 'Events', 'General']
+const errText = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+
+// Draft holds only the editable fields; `id` present means edit, absent means create.
+interface NoticeDraft {
+  id?: string
+  title: string
+  category: NoticeCategory
+  body: string
+  pinned: boolean
+}
 
 function ManagementNoticesPage() {
-  const { state, dispatch } = useMockStore()
-  const [editing, setEditing] = React.useState<Notice | null>(null)
+  const [notices, setNotices] = React.useState<Notice[]>([])
+  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error'>('loading')
+  const [editing, setEditing] = React.useState<NoticeDraft | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<Notice | null>(null)
+  const [saving, setSaving] = React.useState(false)
 
-  function newNotice(): Notice {
-    return { id: genId('ntc'), title: '', category: 'General', body: '', postedAt: new Date().toISOString(), postedBy: CURRENT_MANAGER_NAME, pinned: false }
+  const load = React.useCallback(() => {
+    let active = true
+    setStatus('loading')
+    getNotices()
+      .then((data) => {
+        if (!active) return
+        setNotices(data)
+        setStatus('ready')
+      })
+      .catch(() => {
+        if (active) setStatus('error')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  React.useEffect(() => load(), [load])
+
+  function newDraft(): NoticeDraft {
+    return { title: '', category: 'General', body: '', pinned: false }
   }
 
-  function save(notice: Notice) {
-    const exists = state.notices.some((n) => n.id === notice.id)
-    dispatch({ type: exists ? 'UPDATE_NOTICE' : 'ADD_NOTICE', payload: notice })
-    setEditing(null)
-    toast.success(exists ? 'Notice updated' : 'Notice published')
+  async function save() {
+    if (!editing) return
+    if (editing.title.trim() === '' || editing.body.trim() === '') {
+      toast.error('Title and body are required.')
+      return
+    }
+    setSaving(true)
+    try {
+      const payload = {
+        title: editing.title.trim(),
+        category: editing.category,
+        body: editing.body.trim(),
+        pinned: editing.pinned,
+        postedBy: CURRENT_MANAGER_NAME,
+      }
+      const saved = editing.id ? await updateNotice(editing.id, payload) : await createNotice(payload)
+      setNotices((prev) => {
+        const exists = prev.some((n) => n.id === saved.id)
+        const next = exists ? prev.map((n) => (n.id === saved.id ? saved : n)) : [saved, ...prev]
+        return next.sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.postedAt.localeCompare(a.postedAt))
+      })
+      toast.success(editing.id ? 'Notice updated' : 'Notice published')
+      setEditing(null)
+    } catch (err) {
+      toast.error(errText(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return
-    dispatch({ type: 'DELETE_NOTICE', payload: { id: deleteTarget.id } })
-    toast.success('Notice removed')
+    const id = deleteTarget.id
     setDeleteTarget(null)
+    try {
+      await deleteNotice(id)
+      setNotices((prev) => prev.filter((n) => n.id !== id))
+      toast.success('Notice removed')
+    } catch (err) {
+      toast.error(errText(err))
+    }
   }
-
-  const sorted = [...state.notices].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.postedAt.localeCompare(a.postedAt))
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -62,40 +121,73 @@ function ManagementNoticesPage() {
         title="Notices"
         description="Compose and manage announcements shown to residents."
         actions={
-          <Button className="gap-1.5 bg-accent-indigo text-white hover:bg-accent-indigo-soft" onClick={() => setEditing(newNotice())}>
+          <Button className="gap-1.5 bg-accent-indigo text-white hover:bg-accent-indigo-soft" onClick={() => setEditing(newDraft())}>
             <Plus className="size-4" /> New Notice
           </Button>
         }
       />
 
-      <div className="space-y-3">
-        {sorted.map((notice) => (
-          <div key={notice.id} className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
-            <div className="min-w-0">
-              <div className="mb-1 flex items-center gap-2">
-                <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-medium text-muted-text">{notice.category}</span>
-                {notice.pinned && <Pin className="size-3 fill-current text-accent-gold" />}
+      {status === 'loading' ? (
+        <div className="animate-pulse space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-2xl border border-border bg-surface" />
+          ))}
+        </div>
+      ) : status === 'error' ? (
+        <div className="rounded-2xl border border-border bg-surface p-8 text-center">
+          <p className="text-sm text-muted-text">We couldn't load notices right now.</p>
+          <Button onClick={load} className="mt-4 bg-accent-indigo text-white hover:bg-accent-indigo-soft">
+            Retry
+          </Button>
+        </div>
+      ) : notices.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-surface p-8 text-center text-sm text-muted-text">
+          No notices yet. Publish your first announcement.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {notices.map((notice) => (
+            <div key={notice.id} className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-medium text-muted-text">{notice.category}</span>
+                  {notice.pinned && <Pin className="size-3 fill-current text-accent-gold" />}
+                </div>
+                <p className="text-sm font-medium text-foreground">{notice.title}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-text">{notice.body}</p>
+                <p className="mt-1 text-[11px] text-muted-text/70">{notice.postedBy}</p>
               </div>
-              <p className="text-sm font-medium text-foreground">{notice.title}</p>
-              <p className="mt-1 line-clamp-2 text-xs text-muted-text">{notice.body}</p>
-              <p className="mt-1 text-[11px] text-muted-text/70">{notice.postedBy}</p>
+              <div className="flex shrink-0 gap-1.5">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 text-muted-text hover:text-foreground"
+                  aria-label={`Edit ${notice.title}`}
+                  onClick={() =>
+                    setEditing({ id: notice.id, title: notice.title, category: notice.category, body: notice.body, pinned: notice.pinned })
+                  }
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 text-rose-400 hover:bg-rose-500/10"
+                  aria-label={`Remove ${notice.title}`}
+                  onClick={() => setDeleteTarget(notice)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="flex shrink-0 gap-1.5">
-              <Button size="icon" variant="ghost" className="size-7 text-muted-text hover:text-foreground" onClick={() => setEditing(notice)}>
-                <Pencil className="size-3.5" />
-              </Button>
-              <Button size="icon" variant="ghost" className="size-7 text-rose-400 hover:bg-rose-500/10" onClick={() => setDeleteTarget(notice)}>
-                <Trash2 className="size-3.5" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <Sheet open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <SheetContent className="border-border bg-surface text-foreground">
           <SheetHeader>
-            <SheetTitle className="text-foreground">{state.notices.some((n) => n.id === editing?.id) ? 'Edit Notice' : 'New Notice'}</SheetTitle>
+            <SheetTitle className="text-foreground">{editing?.id ? 'Edit Notice' : 'New Notice'}</SheetTitle>
           </SheetHeader>
           {editing && (
             <div className="space-y-4 px-4 pb-6">
@@ -126,8 +218,8 @@ function ManagementNoticesPage() {
                 <Label className="text-xs text-muted-text">Pin to top</Label>
                 <Switch checked={editing.pinned} onCheckedChange={(checked) => setEditing({ ...editing, pinned: checked })} />
               </div>
-              <Button className="w-full bg-accent-indigo text-white hover:bg-accent-indigo-soft" onClick={() => save(editing)}>
-                Publish Notice
+              <Button className="w-full bg-accent-indigo text-white hover:bg-accent-indigo-soft" disabled={saving} onClick={save}>
+                {saving ? 'Publishing…' : editing.id ? 'Save Changes' : 'Publish Notice'}
               </Button>
             </div>
           )}
