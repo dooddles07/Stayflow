@@ -22,6 +22,7 @@ import { ApiError } from '#/lib/api/client'
 import { getRestaurants } from '#/lib/api/restaurant'
 import { cancelReservation, getMyReservations, type ReservationView } from '#/lib/api/diningReservation'
 import { useMyProfile } from '#/lib/store/member-profile'
+import { byHistorySort, isPastDate, type HistorySort } from '#/lib/history'
 import type { Restaurant } from '#/lib/mock/types'
 
 export const Route = createFileRoute('/member/dining/')({
@@ -37,6 +38,7 @@ function DiningList() {
   const [reservations, setReservations] = React.useState<ReservationView[]>([])
   const [status, setStatus] = React.useState<'loading' | 'ready' | 'error'>('loading')
   const [cancelingId, setCancelingId] = React.useState<string | null>(null)
+  const [historySort, setHistorySort] = React.useState<HistorySort>('newest')
 
   const load = React.useCallback((residentId?: string) => {
     let active = true
@@ -60,16 +62,24 @@ function DiningList() {
     if (profile) return load(profile.id)
   }, [profile, load])
 
+  // Upcoming = still-active reservations whose date hasn't passed; everything else is history.
   const upcoming = [...reservations]
-    .filter((r) => r.status === 'pending' || r.status === 'confirmed')
+    .filter((r) => (r.status === 'pending' || r.status === 'confirmed') && !isPastDate(r.date))
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+  const history = [...reservations]
+    .filter((r) => r.status === 'cancelled' || r.status === 'arrived' || isPastDate(r.date))
+    .sort((a, b) => byHistorySort(historySort)(a.date, b.date) || byHistorySort(historySort)(a.time, b.time))
+
+  // Cancelled reads as cancelled; a guest who arrived or a past reservation reads as completed.
+  const outcome = (r: ReservationView) => (r.status === 'cancelled' ? 'cancelled' : 'completed')
 
   async function handleCancel(id: string) {
     if (cancelingId) return
     setCancelingId(id)
     try {
       await cancelReservation(id)
-      setReservations((prev) => prev.filter((r) => r.id !== id))
+      // Keep the row so it drops into history rather than vanishing.
+      setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'cancelled' } : r)))
       toast.success('Reservation cancelled')
     } catch (err) {
       toast.error(errText(err))
@@ -122,6 +132,42 @@ function DiningList() {
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {status === 'ready' && history.length > 0 && (
+        <div className="mb-8">
+          <SectionHeader
+            title="Reservation History"
+            description="Completed and cancelled reservations"
+            action={
+              <label className="flex items-center gap-2 text-xs text-muted-text">
+                <span className="hidden sm:inline">Sort</span>
+                <select
+                  value={historySort}
+                  onChange={(e) => setHistorySort(e.target.value as HistorySort)}
+                  aria-label="Sort reservation history"
+                  className="h-8 rounded-md border border-border bg-canvas px-2 text-xs text-foreground"
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+              </label>
+            }
+          />
+          <div className="space-y-3">
+            {history.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{r.restaurantName ?? 'Restaurant'}</p>
+                  <p className="text-xs text-muted-text">
+                    {r.date.slice(0, 10)} at {r.time} · Party of {r.partySize} · {r.seating}
+                  </p>
+                </div>
+                <StatusPill status={outcome(r)} />
               </div>
             ))}
           </div>

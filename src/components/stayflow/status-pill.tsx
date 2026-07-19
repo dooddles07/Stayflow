@@ -24,6 +24,7 @@ const statusToneMap: Record<string, PillTone> = {
   closed: 'danger',
   occupied: 'danger',
   'checked-out': 'neutral',
+  completed: 'neutral',
   available: 'info',
 }
 

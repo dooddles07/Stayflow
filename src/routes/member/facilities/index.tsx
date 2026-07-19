@@ -24,6 +24,7 @@ import { ApiError } from '#/lib/api/client'
 import { getFacilities } from '#/lib/api/facility'
 import { cancelBooking, getMyBookings, type BookingView } from '#/lib/api/booking'
 import { useMyProfile } from '#/lib/store/member-profile'
+import { byHistorySort, isPastDate, type HistorySort } from '#/lib/history'
 import type { Facility, FacilityCategory } from '#/lib/mock/types'
 
 export const Route = createFileRoute('/member/facilities/')({
@@ -41,6 +42,7 @@ function FacilitiesList() {
   const [status, setStatus] = React.useState<'loading' | 'ready' | 'error'>('loading')
   const [category, setCategory] = React.useState<(typeof categories)[number]>('All')
   const [cancelingId, setCancelingId] = React.useState<string | null>(null)
+  const [historySort, setHistorySort] = React.useState<HistorySort>('newest')
 
   const load = React.useCallback((residentId?: string) => {
     let active = true
@@ -65,16 +67,24 @@ function FacilitiesList() {
   }, [profile, load])
 
   const filtered = category === 'All' ? facilities : facilities.filter((f) => f.category === category)
+  // Upcoming = still-active bookings whose date hasn't passed; everything else is history.
   const upcoming = [...bookings]
-    .filter((b) => b.status === 'pending' || b.status === 'confirmed')
+    .filter((b) => (b.status === 'pending' || b.status === 'confirmed') && !isPastDate(b.date))
     .sort((a, b) => a.date.localeCompare(b.date) || a.timeSlot.localeCompare(b.timeSlot))
+  const history = [...bookings]
+    .filter((b) => b.status === 'cancelled' || isPastDate(b.date))
+    .sort((a, b) => byHistorySort(historySort)(a.date, b.date) || byHistorySort(historySort)(a.timeSlot, b.timeSlot))
+
+  // Cancelled and past bookings read as their outcome — a past active booking is "completed".
+  const outcome = (b: BookingView) => (b.status === 'cancelled' ? 'cancelled' : 'completed')
 
   async function handleCancel(id: string) {
     if (cancelingId) return
     setCancelingId(id)
     try {
       await cancelBooking(id)
-      setBookings((prev) => prev.filter((b) => b.id !== id))
+      // Keep the row so it drops into history rather than vanishing.
+      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'cancelled' } : b)))
       toast.success('Booking cancelled')
     } catch (err) {
       toast.error(errText(err))
@@ -127,6 +137,42 @@ function FacilitiesList() {
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {status === 'ready' && history.length > 0 && (
+        <div className="mb-8">
+          <SectionHeader
+            title="Booking History"
+            description="Completed and cancelled bookings"
+            action={
+              <label className="flex items-center gap-2 text-xs text-muted-text">
+                <span className="hidden sm:inline">Sort</span>
+                <select
+                  value={historySort}
+                  onChange={(e) => setHistorySort(e.target.value as HistorySort)}
+                  aria-label="Sort booking history"
+                  className="h-8 rounded-md border border-border bg-canvas px-2 text-xs text-foreground"
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+              </label>
+            }
+          />
+          <div className="space-y-3">
+            {history.map((b) => (
+              <div key={b.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{b.facilityName ?? 'Facility'}</p>
+                  <p className="text-xs text-muted-text">
+                    {b.date.slice(0, 10)} · {b.timeSlot} · Party of {b.partySize}
+                  </p>
+                </div>
+                <StatusPill status={outcome(b)} />
               </div>
             ))}
           </div>
