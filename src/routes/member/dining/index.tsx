@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import * as React from 'react'
 import { toast } from 'sonner'
-import { MapPin, Star, UtensilsCrossed } from 'lucide-react'
+import { ChevronDown, History, MapPin, Star, UtensilsCrossed } from 'lucide-react'
 import { PageHeader } from '#/components/stayflow/page-header'
 import { SectionHeader } from '#/components/stayflow/section-header'
 import { StatusPill } from '#/components/stayflow/status-pill'
@@ -23,6 +23,7 @@ import { getRestaurants } from '#/lib/api/restaurant'
 import { cancelReservation, getMyReservations, type ReservationView } from '#/lib/api/diningReservation'
 import { useMyProfile } from '#/lib/store/member-profile'
 import { byHistorySort, isPastDate, type HistorySort } from '#/lib/history'
+import { cn } from '#/lib/utils'
 import type { Restaurant } from '#/lib/mock/types'
 
 export const Route = createFileRoute('/member/dining/')({
@@ -39,6 +40,7 @@ function DiningList() {
   const [status, setStatus] = React.useState<'loading' | 'ready' | 'error'>('loading')
   const [cancelingId, setCancelingId] = React.useState<string | null>(null)
   const [historySort, setHistorySort] = React.useState<HistorySort>('newest')
+  const [showHistory, setShowHistory] = React.useState(false)
 
   const load = React.useCallback((residentId?: string) => {
     let active = true
@@ -140,37 +142,49 @@ function DiningList() {
 
       {status === 'ready' && history.length > 0 && (
         <div className="mb-8">
-          <SectionHeader
-            title="Reservation History"
-            description="Completed and cancelled reservations"
-            action={
-              <label className="flex items-center gap-2 text-xs text-muted-text">
-                <span className="hidden sm:inline">Sort</span>
-                <select
-                  value={historySort}
-                  onChange={(e) => setHistorySort(e.target.value as HistorySort)}
-                  aria-label="Sort reservation history"
-                  className="h-8 rounded-md border border-border bg-canvas px-2 text-xs text-foreground"
-                >
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                </select>
-              </label>
-            }
-          />
-          <div className="space-y-3">
-            {history.map((r) => (
-              <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{r.restaurantName ?? 'Restaurant'}</p>
-                  <p className="text-xs text-muted-text">
-                    {r.date.slice(0, 10)} at {r.time} · Party of {r.partySize} · {r.seating}
-                  </p>
-                </div>
-                <StatusPill status={outcome(r)} />
+          <button
+            type="button"
+            onClick={() => setShowHistory((v) => !v)}
+            aria-expanded={showHistory}
+            className="flex w-full items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-left text-sm font-medium text-foreground transition-colors hover:border-accent-indigo/40"
+          >
+            <History className="size-4 text-accent-gold" />
+            Reservation History
+            <span className="rounded-full bg-surface-hover px-2 py-0.5 text-xs text-muted-text">{history.length}</span>
+            <ChevronDown className={cn('ml-auto size-4 text-muted-text transition-transform', showHistory && 'rotate-180')} />
+          </button>
+
+          {showHistory && (
+            <div className="mt-3">
+              <div className="mb-3 flex justify-end">
+                <label className="flex items-center gap-2 text-xs text-muted-text">
+                  <span className="hidden sm:inline">Sort</span>
+                  <select
+                    value={historySort}
+                    onChange={(e) => setHistorySort(e.target.value as HistorySort)}
+                    aria-label="Sort reservation history"
+                    className="h-8 rounded-md border border-border bg-canvas px-2 text-xs text-foreground"
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                  </select>
+                </label>
               </div>
-            ))}
-          </div>
+              <div className="space-y-3">
+                {history.map((r) => (
+                  <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{r.restaurantName ?? 'Restaurant'}</p>
+                      <p className="text-xs text-muted-text">
+                        {r.date.slice(0, 10)} at {r.time} · Party of {r.partySize} · {r.seating}
+                      </p>
+                    </div>
+                    <StatusPill status={outcome(r)} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
