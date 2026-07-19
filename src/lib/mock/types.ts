@@ -93,6 +93,8 @@ export interface Restaurant {
   priceRange: '$' | '$$' | '$$$' | '$$$$'
   rating: number
   location: string
+  // Largest party the online booking flow accepts; bigger groups call in for private dining.
+  maxPartySize: number
 }
 
 export interface DiningTable {

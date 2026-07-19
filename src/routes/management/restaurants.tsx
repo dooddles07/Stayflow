@@ -43,6 +43,7 @@ function newDraft(): Restaurant {
     priceRange: '$$$',
     rating: 4.5,
     location: '',
+    maxPartySize: 8,
   }
 }
 
@@ -91,6 +92,7 @@ function RestaurantsPage() {
         priceRange: editing.priceRange,
         rating: editing.rating,
         location: editing.location.trim(),
+        maxPartySize: editing.maxPartySize,
       }
       const saved = editing.id ? await updateRestaurant(editing.id, payload) : await createRestaurant(payload)
       setRestaurants((prev) => {
@@ -186,6 +188,7 @@ function RestaurantsPage() {
                   <span>{restaurant.priceRange}</span>
                   <span>{restaurant.openHours}</span>
                   <span>{tableCount} tables</span>
+                  <span>Max party {restaurant.maxPartySize}</span>
                   <span>★ {restaurant.rating}</span>
                 </div>
               </div>
@@ -237,6 +240,18 @@ function RestaurantsPage() {
               <div>
                 <Label className="mb-1.5 text-xs text-muted-text">Location</Label>
                 <Input value={editing.location} onChange={(e) => setEditing({ ...editing, location: e.target.value })} className="border-border bg-canvas" />
+              </div>
+              <div>
+                <Label className="mb-1.5 text-xs text-muted-text">Max party size (online booking)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={editing.maxPartySize}
+                  onChange={(e) => setEditing({ ...editing, maxPartySize: Number(e.target.value) || 1 })}
+                  className="border-border bg-canvas"
+                />
+                <p className="mt-1.5 text-xs text-muted-text">Larger groups are expected to call in for private dining.</p>
               </div>
               <Button className="w-full bg-accent-indigo text-white hover:bg-accent-indigo-soft" disabled={saving} onClick={save}>
                 {saving ? 'Saving…' : 'Save Restaurant'}

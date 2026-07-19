@@ -169,6 +169,10 @@ model Restaurant {
   priceRange  String
   rating      Float
   location    String
+  // Largest party the online booking flow accepts. Real reservation systems cap
+  // this well below the room's total seats — bigger parties call in for a private
+  // room or a pushed-together table setup staff arrange manually.
+  maxPartySize Int @default(8)
 
   tables       DiningTable[]
   reservations DiningReservation[]

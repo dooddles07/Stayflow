@@ -173,11 +173,16 @@ function RestaurantDetail() {
               id="party-size"
               type="number"
               min={1}
-              max={12}
+              max={restaurant.maxPartySize}
               value={partySize}
-              onChange={(e) => setPartySize(Number(e.target.value) || 1)}
+              onChange={(e) => setPartySize(Math.min(Number(e.target.value) || 1, restaurant.maxPartySize))}
               className="border-border bg-canvas"
             />
+            {partySize >= restaurant.maxPartySize && (
+              <p className="mt-1.5 text-xs text-muted-text">
+                For parties larger than {restaurant.maxPartySize}, call the restaurant directly to arrange private dining.
+              </p>
+            )}
           </div>
 
           <div>

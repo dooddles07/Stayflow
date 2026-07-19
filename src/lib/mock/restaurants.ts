@@ -11,6 +11,7 @@ export const restaurants: Restaurant[] = [
     priceRange: '$$$$',
     rating: 4.8,
     location: 'Skyline Tower · Level 41',
+    maxPartySize: 8,
   },
   {
     id: 'rst-002',
@@ -22,6 +23,7 @@ export const restaurants: Restaurant[] = [
     priceRange: '$$$',
     rating: 4.7,
     location: 'Garden Residences · Courtyard',
+    maxPartySize: 6,
   },
   {
     id: 'rst-003',
@@ -33,6 +35,7 @@ export const restaurants: Restaurant[] = [
     priceRange: '$$$$',
     rating: 4.9,
     location: 'The Pavilion · Level 2',
+    maxPartySize: 8,
   },
   {
     id: 'rst-004',
@@ -44,6 +47,7 @@ export const restaurants: Restaurant[] = [
     priceRange: '$$',
     rating: 4.6,
     location: 'Skyline Tower · Ground Floor',
+    maxPartySize: 6,
   },
 ]
 

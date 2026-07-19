@@ -13,6 +13,7 @@ export interface RestaurantInput {
   priceRange: Restaurant['priceRange']
   rating: number
   location: string
+  maxPartySize: number
 }
 
 // Writes require STAFF/MANAGEMENT (enforced server-side). id is set by the server.

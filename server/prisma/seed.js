@@ -198,6 +198,8 @@ async function main() {
       priceRange: '$$$$',
       rating: 4.8,
       location: 'Skyline Tower · Level 41',
+      // Largest table seats 8 — matches the online booking cap; bigger parties call for private dining.
+      maxPartySize: 8,
       tables: {
         create: [
           { id: 'tbl-001', label: 'T1', seats: 2, status: 'AVAILABLE' },
