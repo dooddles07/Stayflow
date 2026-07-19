@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { api, ApiError } from '#/lib/api/client'
+import { toast } from 'sonner'
+import { api, ApiError, setUnauthorizedHandler } from '#/lib/api/client'
 import type { Portal } from '#/lib/hooks/use-portal-preference'
 
 export type PortalRole = 'MEMBER' | 'STAFF' | 'MANAGEMENT'
@@ -78,5 +79,21 @@ export const useAuthStore = create<AuthState>()(
 export function isPortalRoleMatch(role: PortalRole, portal: Portal) {
   return roleToPortal[role] === portal
 }
+
+// A 401 while we believe there's an active session means the cookie died server-side
+// (natural expiry, password changed elsewhere, account disabled) — without this, every
+// panel on the page independently fails its fetch into a dead-end "couldn't load, retry"
+// state instead of sending the user back to sign in. A 401 with no local user (e.g. a
+// login-form typo) is normal and left for the caller to handle — never intercepted here.
+let redirecting = false
+setUnauthorizedHandler(() => {
+  const { user } = useAuthStore.getState()
+  if (!user || redirecting) return
+  redirecting = true
+  const portal = roleToPortal[user.role]
+  useAuthStore.setState({ user: null })
+  toast.error('Your session has expired. Sign in again to continue.')
+  window.location.assign(`/login/${portal}`)
+})
 
 export { ApiError }

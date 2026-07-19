@@ -10,6 +10,14 @@ export class ApiError extends Error {
   }
 }
 
+// Fires when any request comes back 401 — the auth store registers a handler that
+// clears the stale session and redirects to sign-in. Kept as an injectable callback
+// (not a direct import) so this module never depends on the store module.
+let onUnauthorized: (() => void) | null = null
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -23,6 +31,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
+    // Only the browser holds a session to invalidate — SSR loaders never persist one.
+    if (res.status === 401 && typeof window !== 'undefined') onUnauthorized?.()
     throw new ApiError(res.status, body.error ?? `Request failed with status ${res.status}`)
   }
 
