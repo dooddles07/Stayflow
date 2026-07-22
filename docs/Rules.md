@@ -21,6 +21,15 @@ A resident never creates their own login. The real-world flow this models: the r
 4. Setting a real password — via the normal in-app change-password flow, **or** via the public forgot-password/reset-password flow — clears `mustChangePassword`. Both count equally as "the resident proved they own the account."
 5. A resident can only ever have one login: `create-login` 409s if the resident already has one, or if the email collides with an unrelated existing account.
 
+## Email change
+
+Any authenticated user (not just residents) can change their sign-in email in two steps:
+
+1. `POST /auth/change-email` (`requireAuth`, rate-limited) — takes `{newEmail, currentPassword}`. Re-verifies the caller's current password (not just their session) before doing anything, then emails a verification link to the *new* address with a hashed, time-limited token. Rejects if `newEmail` collides with an existing account or another pending change.
+2. `POST /auth/confirm-email` — takes `{token}` from that link. On success, applies the email swap and bumps `tokenVersion`, which instantly revokes every existing session (including the one that requested the change) — the user signs back in with the new email.
+
+Both endpoints live under `/auth`, so they're reachable even for a resident still gated by `blockIfMustChangePassword` — same as `/auth/logout` and `/auth/change-password`.
+
 ## User Roles
 
 | Role | Portal | Can do |
@@ -49,7 +58,7 @@ This matrix is server-enforced RBAC, not a map of what the staff portal's UI exp
 
 ## Admin write allowlisting & audit trail
 
-- Admin CRUD (residents, staff, facilities, restaurants, tables, notices) only ever writes an explicit allowlist of fields per resource, never a raw spread of the request body — closes a mass-assignment gap where a STAFF/MANAGEMENT caller could otherwise set fields no client UI exposes (e.g. a resident's `moveInDate` or `avatarSeed` via a direct API call to the update endpoint).
+- Admin CRUD (residents, staff, facilities, restaurants, tables, notices, events) only ever writes an explicit allowlist of fields per resource, never a raw spread of the request body — closes a mass-assignment gap where a STAFF/MANAGEMENT caller could otherwise set fields no client UI exposes (e.g. a resident's `moveInDate` or `avatarSeed`, or a notice's `postedAt`, via a direct API call to the update endpoint).
 - Every `CREATE`/`UPDATE`/`DELETE` on those same resources is logged to the `admin_action_events` table (actor id/email/role, action, resource type/id, timestamp) — an immutable trail of who changed what, separate from `auth_events`. No FK to `users`, same reasoning as `auth_events`: history must survive account deletion.
 
 ## Booking / capacity rules
@@ -60,6 +69,7 @@ This matrix is server-enforced RBAC, not a map of what the staff portal's UI exp
 - **Slot-conflict check is atomic:** wrapped in a serializable DB transaction to close a double-booking race under concurrent requests for the same slot. Dining table assignment on reservation confirm uses the same pattern (find smallest fitting table + reserve it in one serializable transaction, retried once on write conflict) so two reservations confirmed at once can't both land on the same table.
 - **Per-restaurant max party size** replaces an earlier hardcoded cap — each restaurant defines its own realistic limit.
 - **Table release on delete:** deleting a dining reservation releases its assigned table so it doesn't stay permanently stranded as occupied.
+- **Status is forced to `PENDING` on create**, server-side, regardless of what the request body sends — a member can create a booking or dining reservation, never confirm one directly (and for dining, any client-supplied `tableId` is ignored too). Only STAFF/MANAGEMENT can transition a booking/reservation to `CONFIRMED` via the update endpoint, which is where the atomic table-assignment above actually runs.
 
 ## Guest pass lifecycle
 
