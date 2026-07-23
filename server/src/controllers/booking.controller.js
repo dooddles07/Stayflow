@@ -3,9 +3,24 @@ import { FacilityModel } from '../models/facility.model.js'
 import { buildCrudController } from '../utils/crudController.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
-import { requirePositiveInt } from '../utils/validate.js'
+import { pickAllowed, requirePositiveInt } from '../utils/validate.js'
 
 const base = buildCrudController(BookingModel, 'Booking')
+
+// The staff UI only ever PUTs { status } (see setBookingStatus in src/lib/api/booking.ts) —
+// date/facilityId/partySize are set once at create and never revised after. Allowlisting to
+// just this closes a raw-spread mass-assignment gap (STAFF could otherwise reassign
+// residentId/facilityId, or change partySize/facilityId with zero capacity re-check).
+const ADMIN_UPDATE_FIELDS = ['status']
+
+// Matches what the staff UI actually drives (approve/reject a pending booking, or cancel a
+// confirmed one) — anything else, e.g. PENDING jumping straight past CONFIRMED, is rejected
+// rather than silently allowed.
+const VALID_TRANSITIONS = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['CANCELLED'],
+  CANCELLED: [],
+}
 
 // A bare "YYYY-MM-DD" makes Prisma's DateTime column throw an unhandled validation
 // error. Accept it defensively server-side too — this bug shape has already hit
@@ -36,13 +51,15 @@ export const bookingController = {
     res.status(201).json(booking)
   }),
   update: asyncHandler(async (req, res) => {
-    const data = { ...req.body }
-    if ('date' in data) data.date = toFullDate(data.date)
-    if ('partySize' in data) {
-      data.partySize = requirePositiveInt(data.partySize, 'partySize')
-      const current = await BookingModel.findById(req.params.id)
-      if (!current) throw ApiError.notFound('Booking not found')
-      await assertWithinCapacity(data.facilityId ?? current.facilityId, data.partySize)
+    const current = await BookingModel.findById(req.params.id)
+    if (!current) throw ApiError.notFound('Booking not found')
+
+    const data = pickAllowed(req.body, ADMIN_UPDATE_FIELDS)
+    if ('status' in data && data.status !== current.status) {
+      const allowed = VALID_TRANSITIONS[current.status] ?? []
+      if (!allowed.includes(data.status)) {
+        throw ApiError.conflict(`Can't move a booking from ${current.status.toLowerCase()} to ${data.status.toLowerCase()}.`)
+      }
     }
     res.json(await BookingModel.update(req.params.id, data))
   }),

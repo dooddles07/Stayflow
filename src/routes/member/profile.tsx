@@ -110,6 +110,9 @@ function AvatarDialog({
   const [draftStyle, setDraftStyle] = React.useState<string | null>(style)
   const [draftSeed, setDraftSeed] = React.useState(seed)
   const [busy, setBusy] = React.useState(false)
+  // Mirrors busy but checked/updated synchronously — two clicks before React re-renders
+  // (and disables the button) would both read the same stale false and both fire.
+  const busyRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!open) return
@@ -118,6 +121,8 @@ function AvatarDialog({
   }, [open, seed, style, name])
 
   async function submit() {
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     try {
       const profile = await updateMyProfile({ avatarSeed: draftSeed, avatarStyle: draftStyle })
@@ -127,6 +132,7 @@ function AvatarDialog({
     } catch (err) {
       toast.error(errText(err))
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }
@@ -214,6 +220,9 @@ function FamilyDialog({
   const [relation, setRelation] = React.useState('')
   const [age, setAge] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  // Mirrors busy but checked/updated synchronously — two clicks before React re-renders
+  // (and disables the button) would both read the same stale false and both fire.
+  const busyRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!open) return
@@ -223,6 +232,8 @@ function FamilyDialog({
   }, [open, initial])
 
   async function submit() {
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     try {
       const payload = { name, relation, age: Number(age) }
@@ -233,6 +244,7 @@ function FamilyDialog({
     } catch (err) {
       toast.error(errText(err))
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }
@@ -289,6 +301,9 @@ function VehicleDialog({
   const [plate, setPlate] = React.useState('')
   const [color, setColor] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  // Mirrors busy but checked/updated synchronously — two clicks before React re-renders
+  // (and disables the button) would both read the same stale false and both fire.
+  const busyRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!open) return
@@ -299,6 +314,8 @@ function VehicleDialog({
   }, [open, initial])
 
   async function submit() {
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     try {
       const payload = { make, model, plate, color }
@@ -309,6 +326,7 @@ function VehicleDialog({
     } catch (err) {
       toast.error(errText(err))
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }
@@ -445,6 +463,9 @@ function ProfilePage() {
   const { profile, status, setProfile } = useMyProfile()
   const [form, setForm] = React.useState<ResidentProfile | null>(null)
   const [saving, setSaving] = React.useState(false)
+  // Mirrors saving but checked/updated synchronously — two clicks before React re-renders
+  // (and disables the button) would both read the same stale false and both fire.
+  const savingRef = React.useRef(false)
   const [dietaryInput, setDietaryInput] = React.useState('')
 
   // Sync the editable copy when the identity loads/changes — but not on every
@@ -487,13 +508,14 @@ function ProfilePage() {
     message: string,
     keys: (keyof ReturnType<typeof computeErrors>)[],
   ) {
-    if (!form) return
+    if (!form || savingRef.current) return
     const errs = computeErrors(form)
     if (keys.some((k) => errs[k])) {
       toast.error('Fix the highlighted fields before saving.')
       document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
       return
     }
+    savingRef.current = true
     setSaving(true)
     try {
       const updated = await updateMyProfile(patch)
@@ -503,6 +525,7 @@ function ProfilePage() {
     } catch (err) {
       toast.error(errText(err))
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }

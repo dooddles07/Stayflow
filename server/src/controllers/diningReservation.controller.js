@@ -3,9 +3,25 @@ import { RestaurantModel } from '../models/restaurant.model.js'
 import { buildCrudController } from '../utils/crudController.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
-import { requirePositiveInt } from '../utils/validate.js'
+import { pickAllowed, requirePositiveInt } from '../utils/validate.js'
 
 const base = buildCrudController(DiningReservationModel, 'Dining reservation')
+
+// The staff UI only ever PUTs { status } (see setReservationStatus in
+// src/lib/api/diningReservation.ts) — date/partySize/restaurantId are set once at create and
+// never revised after. Allowlisting to just this closes a raw-spread mass-assignment gap
+// (STAFF could otherwise reassign residentId/restaurantId/tableId directly).
+const ADMIN_UPDATE_FIELDS = ['status']
+
+// Matches what the staff UI actually drives (confirm, mark arrived, decline) — anything
+// else, e.g. PENDING jumping straight to ARRIVED, skips the table-assignment/capacity
+// checks below entirely, so it's rejected rather than silently allowed.
+const VALID_TRANSITIONS = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['ARRIVED', 'CANCELLED'],
+  ARRIVED: [],
+  CANCELLED: [],
+}
 
 // A bare "YYYY-MM-DD" makes Prisma's DateTime column throw an unhandled validation
 // error. Accept it defensively server-side too — this exact bug shape has already hit
@@ -41,25 +57,23 @@ export const diningReservationController = {
     res.status(201).json(reservation)
   }),
   // Status transitions carry real-world side effects on the table map — a plain field
-  // edit never touches a table, but confirming/arriving/cancelling does.
+  // edit never touches a table, but confirming/arriving/cancelling does. Status is also the
+  // only field an update may touch at all now (see ADMIN_UPDATE_FIELDS above).
   update: asyncHandler(async (req, res) => {
-    const data = { ...req.body }
-    if ('date' in data) data.date = toFullDate(data.date)
-    if ('partySize' in data) data.partySize = requirePositiveInt(data.partySize, 'partySize')
+    const current = await DiningReservationModel.findById(req.params.id)
+    if (!current) throw ApiError.notFound('Dining reservation not found')
 
-    if (data.status || 'partySize' in data) {
-      const current = await DiningReservationModel.findById(req.params.id)
-      if (!current) throw ApiError.notFound('Dining reservation not found')
+    const data = pickAllowed(req.body, ADMIN_UPDATE_FIELDS)
 
-      if ('partySize' in data) {
-        await assertWithinCapacity(data.restaurantId ?? current.restaurantId, data.partySize)
+    if ('status' in data && data.status !== current.status) {
+      const allowed = VALID_TRANSITIONS[current.status] ?? []
+      if (!allowed.includes(data.status)) {
+        throw ApiError.conflict(`Can't move a reservation from ${current.status.toLowerCase()} to ${data.status.toLowerCase()}.`)
       }
 
-      const effectivePartySize = data.partySize ?? current.partySize
-
       if (data.status === 'CONFIRMED' && !current.tableId) {
-        const table = await DiningReservationModel.assignTableIfAvailable(current.restaurantId, effectivePartySize)
-        if (!table) throw ApiError.conflict(`No available table seats a party of ${effectivePartySize} right now.`)
+        const table = await DiningReservationModel.assignTableIfAvailable(current.restaurantId, current.partySize)
+        if (!table) throw ApiError.conflict(`No available table seats a party of ${current.partySize} right now.`)
         data.tableId = table.id
       }
 

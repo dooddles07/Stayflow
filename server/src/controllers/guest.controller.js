@@ -15,6 +15,14 @@ const base = buildCrudController(GuestModel, 'Guest')
 // guest, fabricating check-in history that never happened.
 const CREATE_FIELDS = ['hostResidentId', 'name', 'purpose', 'vehiclePlate', 'arrivalDate', 'arrivalTime']
 
+// STAFF/MANAGEMENT may correct any visit detail and move PENDING -> APPROVED here, but never
+// CHECKED_IN/CHECKED_OUT or checkedInAt/checkedOutAt directly — those only ever happen through
+// checkIn/checkOut below, which stamp the timestamp server-side and verify the prior state.
+// Without this allowlist a raw `{ ...req.body }` spread let a direct API call skip straight to
+// CHECKED_IN/CHECKED_OUT (or fabricate the timestamps) without ever going through checkIn/checkOut.
+const STAFF_EDITABLE = ['hostResidentId', 'name', 'purpose', 'vehiclePlate', 'arrivalDate', 'arrivalTime', 'status']
+const STAFF_STATUS_TRANSITIONS = { PENDING: ['APPROVED'], APPROVED: [], CHECKED_IN: [], CHECKED_OUT: [] }
+
 // A bare "YYYY-MM-DD" (what an <input type="date"> sends) makes Prisma's DateTime
 // column throw an unhandled validation error. Accept it defensively here too, not just
 // on the frontend — this exact shape of bug has hit multiple date fields already.
@@ -45,18 +53,25 @@ export const guestController = {
     res.status(201).json(guest)
   }),
   update: asyncHandler(async (req, res) => {
+    const current = await GuestModel.findById(req.params.id)
+    if (!current) throw ApiError.notFound('Guest not found')
+
     // A MEMBER owns the record (route guard) but may only edit visit details — never
     // status, check-in timestamps, the host link, or the pass number. Without this
     // allowlist an owner could self-approve/check-in their guest (otherwise staff-only)
-    // or reassign the guest to another resident. STAFF/MANAGEMENT keep full control.
+    // or reassign the guest to another resident. STAFF/MANAGEMENT keep full control,
+    // still allowlisted (see STAFF_EDITABLE) rather than a raw spread.
     const MEMBER_EDITABLE = ['purpose', 'vehiclePlate', 'arrivalDate', 'arrivalTime']
-    const data =
-      req.user.role === 'MEMBER'
-        ? Object.fromEntries(MEMBER_EDITABLE.filter((f) => f in req.body).map((f) => [f, req.body[f]]))
-        : { ...req.body }
+    const data = pickAllowed(req.body, req.user.role === 'MEMBER' ? MEMBER_EDITABLE : STAFF_EDITABLE)
+
+    if ('status' in data && data.status !== current.status) {
+      const allowed = STAFF_STATUS_TRANSITIONS[current.status] ?? []
+      if (!allowed.includes(data.status)) {
+        throw ApiError.conflict(`Can't move a guest from ${current.status.toLowerCase()} to ${data.status.toLowerCase()} here — use check-in/check-out.`)
+      }
+    }
+
     if ('arrivalDate' in data) data.arrivalDate = toFullDate(data.arrivalDate)
-    // passNumber is server-assigned at creation and never client-editable afterward.
-    delete data.passNumber
     res.json(await GuestModel.update(req.params.id, data))
   }),
   byResident: asyncHandler(async (req, res) => {
